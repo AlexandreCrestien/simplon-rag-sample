@@ -50,7 +50,7 @@ def send_message(base_url: str, conversation_id: str, content: str) -> dict:
             response = client.post(
                 f"{base_url}/api/v1/conversations/{conversation_id}/messages",
                 json={"content": content},
-                timeout=60.0 # L'IA peut être lente
+                timeout=300.0 # L'IA peut être lente
             )
             rid = response.headers.get("X-Request-ID", "n/a")
             duration_ms = round((time.time() - start_time) * 1000, 2)

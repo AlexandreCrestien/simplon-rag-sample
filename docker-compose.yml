@@ -25,6 +25,8 @@ services:
       context: ./api
       target: dev
     container_name: simplon_rag_api
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     command: uvicorn main:app --host 0.0.0.0 --port 8000 --no-access-log
     depends_on:
       postgres:
