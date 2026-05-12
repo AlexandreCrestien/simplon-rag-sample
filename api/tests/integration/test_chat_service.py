@@ -125,7 +125,7 @@ async def test_rewrite_once_then_answer(service: ChatService, db_session: AsyncS
         _llm(_EVAL_ANSWER),   # evaluate 2 → answer (retry_count=2 < 3)
     ]
     similarity_mock = AsyncMock(return_value=_CHUNKS)
-    settings_mock = MagicMock(agent_max_retries=3, product_name="Altair")
+    settings_mock = MagicMock(agent_max_retries=3, product_name="Simplon")
 
     with patch("rag.rag.agent.nodes._get_llm", side_effect=llm_calls), \
          patch("rag.rag.retriever.pgvector_retriever.similarity_search", new=similarity_mock), \

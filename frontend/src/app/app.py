@@ -9,6 +9,30 @@ import streamlit as st
 from app.api_client import create_conversation, send_message
 from app.config import API_BASE_URL
 
+import logging
+from pythonjsonlogger import jsonlogger
+
+# --- CONFIGURATION LOGGING JSON ---
+def setup_frontend_logging():
+    formatter = jsonlogger.JsonFormatter(
+        '%(asctime)s %(levelname)s %(message)s'
+    )
+    # On récupère le logger root
+    logger = logging.getLogger()
+    
+    # On nettoie les handlers existants
+    for handler in logger.handlers[:]:
+        logger.removeHandler(handler)
+    
+    # On configure la sortie standard avec notre formateur JSON
+    log_handler = logging.StreamHandler(sys.stdout)
+    log_handler.setFormatter(formatter)
+    logger.addHandler(log_handler)
+    logger.setLevel(logging.INFO)
+
+# Initialisation immédiate
+setup_frontend_logging()
+
 # --- Page config (must be first Streamlit call) ---
 st.set_page_config(
     page_title="RAG Sample — Assistant IA",
@@ -70,10 +94,15 @@ st.markdown(
 # --- Session initialisation ---
 if "conversation_id" not in st.session_state:
     try:
-        st.session_state.conversation_id = create_conversation(API_BASE_URL)
+        conv_id = create_conversation(API_BASE_URL)
+        st.session_state.conversation_id = conv_id
         st.session_state.messages = []
+        # LOG : Session démarrée
+        logging.info("Frontend: New session initialized", extra={"conversation_id": conv_id})
+
     except Exception:
-        st.error("Impossible de joindre l'API. Vérifiez que le serveur FastAPI est démarré.")  # noqa: E501
+        logging.error("Frontend: Critical failure at session init")
+        st.error("Impossible de joindre l'API.")
         st.stop()
 
 # --- Render conversation history ---
@@ -87,6 +116,11 @@ for msg in st.session_state.messages:
 
 # --- Handle new user input ---
 if prompt := st.chat_input("Posez votre question…"):
+    # LOG : Message envoyé
+    logging.info("Frontend: User submitted a prompt", extra={
+        "conversation_id": st.session_state.conversation_id
+    })
+
     st.session_state.messages.append({"role": "user", "content": prompt, "sources": []})
     with st.chat_message("user"):
         st.markdown(prompt)

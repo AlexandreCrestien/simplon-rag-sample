@@ -44,18 +44,47 @@ embeddings and LLM inference.
 | API | FastAPI + uvicorn |
 | RAG Evaluation | Ragas |
 
-## Installation
+## Quickstart with Docker
+
+The fastest way to spin up the full stack (PostgreSQL + API + Streamlit UI):
 
 ```bash
-# Copy and configure environment (at repo root)
-cp .env.example .env
-# Edit .env with your API keys and DB connection
+# 1. Configure the Mistral API key (required)
+cp api/.env.example api/.env
+# Edit api/.env and set MISTRAL_API_KEY
+
+# 2. Start everything in development mode (hot reload, source bind mounts)
+docker compose up -d
+
+# 3. Open the UI
+open http://localhost:8501       # Streamlit chat
+# API docs:    http://localhost:8000/docs
+# API health:  http://localhost:8000/api/v1/health
+
+# 4. Tear down
+docker compose down              # keep data
+docker compose down -v           # also drop the postgres volume
+```
+
+For a production-like build (multi-worker uvicorn, no source mounts, postgres
+port hidden from the host):
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build
+```
+
+## Local installation (without Docker)
+
+```bash
+# Copy and configure environment
+cp api/.env.example api/.env
+# Edit api/.env with your API keys and DB connection
 
 # Install API dependencies
 cd api
 uv sync --extra dev          # dev tools included
 
-# Apply database migrations
+# Apply database migrations (requires a running PostgreSQL with pgvector)
 uv run alembic upgrade head
 cd ..
 
@@ -68,7 +97,7 @@ cd ..
 pre-commit install
 ```
 
-## Usage
+## Usage (local)
 
 ```bash
 # Run API (from api/)
@@ -115,11 +144,6 @@ git commit -m "feat: ..."
 
 | File | Description |
 |------|-------------|
-| [`docs/AGENTS.md`](docs/AGENTS.md) | AI assistant guide and conventions |
-| [`docs/CONVENTIONS.md`](docs/CONVENTIONS.md) | Code style and git conventions |
-| [`docs/TECHNICAL_GUIDE.md`](docs/TECHNICAL_GUIDE.md) | Technical implementation details |
-| [`docs/PROJECT_STRUCTURE.md`](docs/PROJECT_STRUCTURE.md) | Directory and file organization |
-| [`docs/FEATURES.md`](docs/FEATURES.md) | Epics and user stories |
 | [`CONTRIBUTING.md`](CONTRIBUTING.md) | Contribution guidelines |
 | [`CHANGELOG.md`](CHANGELOG.md) | Version history |
 

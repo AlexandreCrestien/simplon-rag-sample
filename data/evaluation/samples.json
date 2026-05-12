@@ -1,6 +1,6 @@
 [
   {
     "question": "Quel temps fait-il aujourd'hui?",
-    "ground_truth": "Je ne peux répondre qu'aux questions relatives au support du logiciel Altair. Votre question semble hors périmètre."
+    "ground_truth": "Je ne peux répondre qu'aux questions relatives au support pédagogique de Simplon. Votre question semble hors périmètre."
   }
 ]

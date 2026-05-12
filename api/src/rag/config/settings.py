@@ -31,7 +31,7 @@ class Settings(BaseSettings):
     web_max_pages: int = 100
 
     # Agent
-    product_name: str = "Altair"
+    product_name: str = "Dev IA"
     agent_max_retries: int = 2
 
     @property
