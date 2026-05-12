@@ -20,19 +20,48 @@ from rag.config.settings import get_settings
 from rag.db.models.conversation import Conversation, Message
 from rag.rag.retriever import pgvector_retriever
 
+
 import logging
 import time
 from functools import wraps
+from prometheus_client import Counter, Histogram
+
+# --- MÉTRIQUES PROMETHEUS ---
+# Histogramme pour la latence de CHAQUE nœud du graphe
+RAG_NODE_LATENCY = Histogram(
+    "rag_node_latency_seconds",
+    "Latence par nœud du graphe LangGraph",
+    ["node_name"],
+    buckets=[0.1, 0.5, 1.0, 2.0, 5.0, 10.0, 20.0]
+)
+
+# Compteur pour les décisions de routage (in_scope, rewrite, escalate, etc.)
+RAG_AGENT_DECISIONS = Counter(
+    "rag_agent_decisions_total",
+    "Nombre de décisions prises par l'agent",
+    ["node", "decision"]
+)
+
+# Compteur pour le nombre de chunks récupérés (optionnel mais recommandé)
+RAG_RETRIEVED_CHUNKS = Counter(
+    "rag_retrieved_chunks_total",
+    "Nombre total de chunks récupérés par le retriever"
+)
+
+RAG_EVAL_SCORES = Histogram(
+    "rag_eval_score",
+    "Distribution des scores d'évaluation du nœud evaluate",
+    buckets=[0, 2, 4, 6, 7, 8, 9, 10]
+)
+
 
 def log_node(node_name: str):
     def decorator(func):
         @wraps(func)
         async def wrapper(state: AgentState, *args, **kwargs):
             start_time = time.time()
-            # On récupère le conversation_id pour le contexte
             conv_id = state.get("conversation_id", "n/a")
             
-            # Log de début (INFO)
             logging.info(f"Entering node: {node_name}", extra={
                 "node": node_name,
                 "conversation_id": conv_id
@@ -40,14 +69,14 @@ def log_node(node_name: str):
             
             result = await func(state, *args, **kwargs)
             
-            # Calcul de la latence
-            duration_ms = round((time.time() - start_time) * 1000, 2)
+            # --- Enregistrement de la métrique de latence ---
+            duration = time.time() - start_time
+            RAG_NODE_LATENCY.labels(node_name=node_name).observe(duration)
             
-            # Log de fin (INFO)
             logging.info(f"Exiting node: {node_name}", extra={
                 "node": node_name,
                 "conversation_id": conv_id,
-                "latency_ms": duration_ms
+                "latency_ms": round(duration * 1000, 2)
             })
             return result
         return wrapper
@@ -121,6 +150,7 @@ async def guard_route(state: AgentState) -> dict:
         category = ""
 
     if not in_scope:
+        RAG_AGENT_DECISIONS.labels(node="guard_route", decision="out_of_scope").inc()
         return {
             "in_scope": False,
             "needs_retrieval": False,
@@ -129,6 +159,8 @@ async def guard_route(state: AgentState) -> dict:
             "sources": [],
         }
 
+    decision = "retrieve" if needs_retrieval else "generate"
+    RAG_AGENT_DECISIONS.labels(node="guard_route", decision=decision).inc()
     return {"in_scope": True, "needs_retrieval": needs_retrieval, "category": category}
 
 
@@ -139,8 +171,13 @@ async def retrieve(state: AgentState, db: AsyncSession) -> dict:
     Uses rewrite_suggestion as the search query when available (rewrite path),
     otherwise falls back to the original user_message.
     """
+
     query = state.get("rewrite_suggestion") or state["user_message"]
     chunks = await pgvector_retriever.similarity_search(query, db)
+    
+    if chunks:
+        RAG_RETRIEVED_CHUNKS.inc(len(chunks))
+        
     return {"retrieved_chunks": chunks}
 
 
@@ -228,6 +265,10 @@ async def evaluate(state: AgentState) -> dict:
         rewrite_suggestion = ""
 
     retry_count = state.get("retry_count", 0) + 1
+
+    # --- MÉTRIQUES PROMETHEUS ---
+    RAG_AGENT_DECISIONS.labels(node="evaluate", decision=decision).inc()
+    RAG_EVAL_SCORES.observe(score)
 
     # AJOUT DU LOG WARNING SI ON REWRITE
     if decision == "rewrite":
