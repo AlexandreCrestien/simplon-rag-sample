@@ -8,6 +8,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from rag.db.models.conversation import Conversation, Message
 from rag.rag.agent.graph import build_graph
 
+import logging
+import time
 
 class ConversationNotFoundError(Exception):
     pass
@@ -52,6 +54,12 @@ class ChatService:
         if result.scalar_one_or_none() is None:
             raise ConversationNotFoundError(conversation_id)
 
+        # --- LOG DÉBUT D'INVOCATION ---
+        logging.info("Starting agent invocation", extra={
+            "conversation_id": str(conversation_id)
+        })
+        start_time = time.time()
+
         graph = build_graph(db)
         final_state = await graph.ainvoke(
             {
@@ -70,6 +78,14 @@ class ChatService:
                 "retry_count": 0,
             },
         )
+
+        # --- LOG FIN D'INVOCATION + LATENCE TOTALE ---
+        duration_ms = round((time.time() - start_time) * 1000, 2)
+        logging.info("Agent invocation complete", extra={
+            "conversation_id": str(conversation_id),
+            "total_latency_ms": duration_ms,
+            "retry_count": final_state.get("retry_count", 0)
+        })
 
         msg_result = await db.execute(
             select(Message)

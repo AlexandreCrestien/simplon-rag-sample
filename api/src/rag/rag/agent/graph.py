@@ -7,17 +7,49 @@ from rag.config.settings import get_settings
 from rag.rag.agent.nodes import escalate, evaluate, generate, guard_route, load_history, retrieve, save_turn
 from rag.rag.agent.state import AgentState
 
+import logging
+
 
 def _guard_route_decision(state: AgentState) -> str:
-    if not state.get("in_scope", True):
+    in_scope = state.get("in_scope", True)
+    needs_retrieval = state.get("needs_retrieval")
+    
+    # LOG : On explique pourquoi on choisit ce chemin
+    logging.info("Guard route decision", extra={
+        "conversation_id": state.get("conversation_id"),
+        "node": "guard_route_decision",
+        "in_scope": in_scope,
+        "needs_retrieval": needs_retrieval
+    })
+
+    if not in_scope:
         return "save_turn"
-    return "retrieve" if state.get("needs_retrieval") else "generate"
+    return "retrieve" if needs_retrieval else "generate"
 
 
 def _eval_decision(state: AgentState) -> str:
-    if state.get("retry_count", 0) >= get_settings().agent_max_retries:
+    retry_count = state.get("retry_count", 0)
+    max_retries = get_settings().agent_max_retries
+    decision = state.get("eval_decision", "answer")
+    
+    # LOG : On trace l'évaluation pour la reconstitution de session
+    logging.info("Evaluation routing decision", extra={
+        "conversation_id": state.get("conversation_id"),
+        "node": "eval_decision",
+        "retry_count": retry_count,
+        "decision": decision,
+        "score": state.get("eval_score")
+    })
+
+    if retry_count >= max_retries:
+        # LOG : Niveau WARNING car on a échoué à trouver une réponse après X tentatives
+        logging.warning("Max retries reached, escalating to human", extra={
+            "conversation_id": state.get("conversation_id"),
+            "retry_count": retry_count
+        })
         return "escalate"
-    return state.get("eval_decision", "answer")
+        
+    return decision
 
 
 def build_graph(db: AsyncSession):

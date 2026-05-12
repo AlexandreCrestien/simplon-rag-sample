@@ -20,6 +20,39 @@ from rag.config.settings import get_settings
 from rag.db.models.conversation import Conversation, Message
 from rag.rag.retriever import pgvector_retriever
 
+import logging
+import time
+from functools import wraps
+
+def log_node(node_name: str):
+    def decorator(func):
+        @wraps(func)
+        async def wrapper(state: AgentState, *args, **kwargs):
+            start_time = time.time()
+            # On récupère le conversation_id pour le contexte
+            conv_id = state.get("conversation_id", "n/a")
+            
+            # Log de début (INFO)
+            logging.info(f"Entering node: {node_name}", extra={
+                "node": node_name,
+                "conversation_id": conv_id
+            })
+            
+            result = await func(state, *args, **kwargs)
+            
+            # Calcul de la latence
+            duration_ms = round((time.time() - start_time) * 1000, 2)
+            
+            # Log de fin (INFO)
+            logging.info(f"Exiting node: {node_name}", extra={
+                "node": node_name,
+                "conversation_id": conv_id,
+                "latency_ms": duration_ms
+            })
+            return result
+        return wrapper
+    return decorator
+
 
 def _extract_json(content: str) -> str:
     """Strip markdown code fences and extract the first JSON object from LLM output."""
@@ -33,6 +66,7 @@ def _get_llm(settings=None, model: str = "mistral-large-latest") -> ChatMistralA
     return ChatMistralAI(model=model, api_key=s.mistral_api_key)
 
 
+@log_node("load_history")
 async def load_history(state: AgentState, db: AsyncSession) -> dict:
     """Load previous messages for this conversation from the DB."""
     result = await db.execute(
@@ -57,6 +91,7 @@ async def load_history(state: AgentState, db: AsyncSession) -> dict:
     return {"messages": lc_messages}
 
 
+@log_node("guard_route")
 async def guard_route(state: AgentState) -> dict:
     """Single LLM call that decides scope and retrieval routing simultaneously.
 
@@ -97,6 +132,7 @@ async def guard_route(state: AgentState) -> dict:
     return {"in_scope": True, "needs_retrieval": needs_retrieval, "category": category}
 
 
+@log_node("retrieve")
 async def retrieve(state: AgentState, db: AsyncSession) -> dict:
     """Retrieve relevant chunks from pgvector.
 
@@ -108,6 +144,7 @@ async def retrieve(state: AgentState, db: AsyncSession) -> dict:
     return {"retrieved_chunks": chunks}
 
 
+@log_node("generate")
 async def generate(state: AgentState) -> dict:
     """Generate an answer using Mistral, with optional retrieved context.
 
@@ -154,6 +191,7 @@ async def generate(state: AgentState) -> dict:
     }
 
 
+@log_node("evaluate")
 async def evaluate(state: AgentState) -> dict:
     """Evaluate the quality of the generated answer and decide routing.
 
@@ -191,6 +229,15 @@ async def evaluate(state: AgentState) -> dict:
 
     retry_count = state.get("retry_count", 0) + 1
 
+    # AJOUT DU LOG WARNING SI ON REWRITE
+    if decision == "rewrite":
+        logging.warning("Agent evaluation failed: triggering rewrite", extra={
+            "node": "evaluate",
+            "conversation_id": state.get("conversation_id"),
+            "score": score,
+            "retry_count": retry_count
+        })
+
     return {
         "eval_score": score,
         "eval_decision": decision,
@@ -199,6 +246,7 @@ async def evaluate(state: AgentState) -> dict:
     }
 
 
+@log_node("escalate")
 async def escalate(state: AgentState) -> dict:
     """Set a human-escalation answer when the evaluator cannot find a satisfactory response."""
     settings = get_settings()
@@ -211,6 +259,7 @@ async def escalate(state: AgentState) -> dict:
     }
 
 
+@log_node("save_turn")
 async def save_turn(state: AgentState, db: AsyncSession) -> dict:
     """Persist user message and assistant answer to the DB."""
     user_msg = Message(
