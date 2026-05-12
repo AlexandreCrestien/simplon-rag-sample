@@ -9,12 +9,10 @@ dependencies = [
     "ragas>=0.4.3",
     # LLM & agent framework
     "langchain>=0.3",
-    "langchain-mistralai>=0.2",
+    "langchain-ollama>=0.2",
     "langchain-postgres>=0.0.12",
     "langgraph>=0.2",
     "langgraph-checkpoint-postgres",
-    # Mistral SDK
-    "mistralai>=1.0",
     # Database
     "sqlalchemy[asyncio]>=2.0",
     "alembic>=1.13",

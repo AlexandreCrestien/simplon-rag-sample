@@ -25,6 +25,8 @@ services:
       context: ./api
       target: dev
     container_name: simplon_rag_api
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     depends_on:
       postgres:
         condition: service_healthy
