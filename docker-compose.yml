@@ -71,16 +71,92 @@ services:
       - ./frontend:/app
     restart: unless-stopped
 
+  # --- PROMETHEUS ---
+  # Scrape les métriques exposées par l'API sur /metrics/ toutes les 15s.
+  # La règle d'alerte latence p95 et taux d'erreur 5xx est définie dans prometheus.yml.
   prometheus:
     image: prom/prometheus:latest
     container_name: simplon_rag_prometheus
     volumes:
       - ./prometheus.yml:/etc/prometheus/prometheus.yml
+      - ./alerts.yml:/etc/prometheus/alerts.yml
     ports:
       - "9090:9090"
+    restart: unless-stopped
+
+  # --- LOKI ---
+  # Agrégateur de logs compatible Grafana.
+  # L'API envoie ses logs JSON via Promtail → Loki.
+  # Loki permet de corréler logs ↔ métriques dans Grafana via le champ request_id.
+  loki:
+    image: grafana/loki:3.0.0
+    container_name: simplon_rag_loki
+    ports:
+      - "3100:3100"
+    volumes:
+      # Fichier de config Loki minimal (stockage local filesystem)
+      - ./loki/loki-config.yml:/etc/loki/local-config.yaml
+      - loki_data:/loki
+    command: -config.file=/etc/loki/local-config.yaml
+    restart: unless-stopped
+
+  # --- PROMTAIL ---
+  # Agent qui lit les logs Docker de l'API et les envoie à Loki.
+  # Il ajoute un label "container" pour qu'on puisse filtrer par service dans Grafana.
+  promtail:
+    image: grafana/promtail:3.0.0
+    container_name: simplon_rag_promtail
+    volumes:
+      # Accès aux logs Docker de la machine hôte
+      - /var/lib/docker/containers:/var/lib/docker/containers:ro
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ./loki/promtail-config.yml:/etc/promtail/config.yml
+    command: -config.file=/etc/promtail/config.yml
+    depends_on:
+      - loki
+    restart: unless-stopped
+
+  # --- ALERTMANAGER ---
+  # Reçoit les alertes de Prometheus et les route vers Discord via webhook.
+  # Canal #alerts-prod  → alertes critiques (p95 latence, 5xx)
+  # Canal #alerts-info  → alertes informatives (à ajouter selon besoin)
+  alertmanager:
+    image: prom/alertmanager:latest
+    container_name: simplon_rag_alertmanager
+    volumes:
+      - ./alertmanager/alertmanager.yml:/etc/alertmanager/alertmanager.yml
+    ports:
+      - "9093:9093"
+    restart: unless-stopped
+
+  # --- GRAFANA ---
+  # Dashboard de visualisation. Branché sur Prometheus (métriques) et Loki (logs).
+  # Datasources et dashboard provisionnés automatiquement au démarrage
+  # via les fichiers dans grafana/provisioning/ — pas besoin de tout reconfigurer
+  # à chaque restart.
+  grafana:
+    image: grafana/grafana:latest
+    container_name: simplon_rag_grafana
+    depends_on:
+      - prometheus
+      - loki
+    ports:
+      - "3000:3000"
+    environment:
+      # Désactive l'écran de login pour le dev local (à changer en prod)
+      - GF_AUTH_ANONYMOUS_ENABLED=true
+      - GF_AUTH_ANONYMOUS_ORG_ROLE=Admin
+    volumes:
+      # Provisioning automatique : datasources + dashboard au démarrage
+      - ./grafana/provisioning:/etc/grafana/provisioning
+      # Le fichier JSON du dashboard est monté directement
+      - ./grafana/dashboards:/var/lib/grafana/dashboards
+      - grafana_data:/var/lib/grafana
     restart: unless-stopped
 
 volumes:
   pgdata:
   api_data_docs:
   api_data_eval:
+  loki_data:
+  grafana_data:

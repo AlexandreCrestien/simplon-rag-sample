@@ -1,0 +1,51 @@
+groups:
+  - name: simplon_rag_alerts
+    rules:
+
+      # --- ALERTE 1 : Latence p95 trop haute sur /messages ---
+      # On surveille le symptôme ressenti par l'utilisateur (temps de réponse),
+      # pas la cause (CPU, mémoire). Si p95 > 60s pendant 2 minutes → alerte.
+      # On utilise p95 et pas p50 pour détecter les cas lents sans sur-alerter
+      # sur quelques requêtes anormalement longues (p99).
+      - alert: HighLatencyMessages
+        expr: |
+          histogram_quantile(0.95,
+            rate(http_request_duration_seconds_bucket{endpoint=~".*messages.*"}[5m])
+          ) > 60
+        for: 2m
+        labels:
+          severity: critical   # → canal Discord #alerts-prod
+        annotations:
+          summary: "Latence p95 trop haute sur /messages"
+          description: |
+            La latence p95 sur /messages dépasse 60s depuis 2 minutes.
+            Valeur actuelle : {{ $value | humanizeDuration }}
+          runbook: |
+            1. Vérifier les logs : docker compose logs api | grep '"node"'
+            2. Vérifier qu'Ollama répond : curl http://localhost:11434/api/tags
+            3. Si Ollama est lent : modèle trop gros pour la machine, envisager llama3.2:1b
+            4. Vérifier la charge CPU/RAM : docker stats
+
+      # --- ALERTE 2 : Taux d'erreur 5xx élevé ---
+      # Si plus de 10% des requêtes retournent une erreur serveur → alerte.
+      # On utilise un ratio sur 5 minutes pour éviter les faux positifs sur
+      # une seule erreur isolée.
+      - alert: HighErrorRate5xx
+        expr: |
+          rate(http_requests_total{status=~"5.."}[5m])
+          /
+          rate(http_requests_total[5m])
+          > 0.10
+        for: 1m
+        labels:
+          severity: critical   # → canal Discord #alerts-prod
+        annotations:
+          summary: "Taux d'erreurs 5xx > 10%"
+          description: |
+            Plus de 10% des requêtes retournent une erreur 5xx depuis 1 minute.
+            Taux actuel : {{ $value | humanizePercentage }}
+          runbook: |
+            1. Vérifier les logs d'erreur : docker compose logs api | grep '"levelname": "ERROR"'
+            2. Vérifier que la DB répond : docker compose exec postgres pg_isready
+            3. Vérifier que l'API est healthy : curl http://localhost:8000/api/v1/health
+            4. Redémarrer l'API si nécessaire : docker compose restart api

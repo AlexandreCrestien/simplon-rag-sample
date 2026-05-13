@@ -1,0 +1,36 @@
+# Ce fichier est lu automatiquement par Grafana au démarrage.
+# Il configure les deux datasources sans passer par l'UI :
+#   - Prometheus → métriques RED + métriques RAG
+#   - Loki       → logs JSON de l'API
+#
+# La corrélation logs ↔ métriques dans Grafana se fait via le champ
+# request_id : on clique sur une métrique → on voit les logs correspondants.
+
+apiVersion: 1
+
+datasources:
+  # --- Prometheus ---
+  - name: Prometheus
+    type: prometheus
+    uid: prometheus
+    access: proxy
+    url: http://prometheus:9090
+    isDefault: true
+    jsonData:
+      timeInterval: '15s'   # aligné sur le scrape_interval de prometheus.yml
+
+  # --- Loki ---
+  - name: Loki
+    type: loki
+    uid: loki
+    access: proxy
+    url: http://loki:3100
+    jsonData:
+      # Corrélation logs ↔ métriques via request_id.
+      # Dans Grafana, quand on inspecte une métrique, un lien "Logs"
+      # ouvre automatiquement les logs filtrés sur le même request_id.
+      derivedFields:
+        - name: request_id
+          matcherRegex: '"request_id":"([^"]+)"'
+          url: ''
+          datasourceUid: loki

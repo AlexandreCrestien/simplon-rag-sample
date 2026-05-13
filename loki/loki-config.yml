@@ -1,0 +1,30 @@
+# Configuration Loki minimale — stockage local sur filesystem.
+# Loki reçoit les logs envoyés par Promtail et les indexe
+# pour qu'on puisse les requêter dans Grafana avec LogQL.
+auth_enabled: false
+
+server:
+  http_listen_port: 3100
+
+# Stockage des logs sur le filesystem local (volume Docker loki_data)
+common:
+  path_prefix: /loki
+  storage:
+    filesystem:
+      chunks_directory: /loki/chunks
+      rules_directory: /loki/rules
+  replication_factor: 1
+  ring:
+    instance_addr: 127.0.0.1
+    kvstore:
+      store: inmemory
+
+schema_config:
+  configs:
+    - from: 2024-01-01
+      store: tsdb
+      object_store: filesystem
+      schema: v13
+      index:
+        prefix: index_
+        period: 24h

@@ -1,8 +1,22 @@
 global:
   scrape_interval: 15s
 
+# Fichier contenant les règles d'alerte à évaluer par Prometheus.
+# Prometheus évalue ces règles toutes les 15s et envoie les alertes actives
+# à Alertmanager (qui se charge de les router vers Discord).
+rule_files:
+  - /etc/prometheus/alerts.yml
+
+# Alertmanager : adresse où Prometheus envoie les alertes déclenchées.
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets: ['alertmanager:9093']
+
 scrape_configs:
   - job_name: 'simplon-rag-api'
     static_configs:
       - targets: ['api:8000']
-  
+    # On indique à Prometheus où récupérer les métriques.
+    # Par défaut il scrape /metrics, ici notre endpoint s'appelle /metrics/
+    metrics_path: /metrics/

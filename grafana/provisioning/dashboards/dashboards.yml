@@ -1,0 +1,8 @@
+# Indique à Grafana où trouver les fichiers JSON de dashboards à importer
+# automatiquement au démarrage. Le dossier est monté via le volume Docker.
+apiVersion: 1
+providers:
+  - name: simplon-rag
+    type: file
+    options:
+      path: /var/lib/grafana/dashboards
