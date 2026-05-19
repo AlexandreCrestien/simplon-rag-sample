@@ -1,0 +1,43 @@
+# Alertmanager reçoit les alertes de Prometheus et les route vers Discord.
+# Deux canaux distincts selon la sévérité :
+#   critical → #alerts-prod  (latence p95, 5xx)
+#   warning  → #alerts-info  (à compléter selon besoin)
+
+global:
+  # Délai avant de renvoyer une alerte qui n'a pas été résolue
+  repeat_interval: 1h
+
+route:
+  # Receiver par défaut si aucune règle ne matche
+  receiver: discord-prod
+
+  # On regroupe les alertes par nom pour éviter le flood Discord
+  group_by: ['alertname']
+  group_wait: 30s       # attend 30s pour regrouper les alertes similaires
+  group_interval: 5m    # intervalle entre deux groupes d'alertes
+
+  routes:
+    # Alertes critiques → #alerts-prod
+    - match:
+        severity: critical
+      receiver: discord-prod
+
+    # Alertes warning → #alerts-info
+    - match:
+        severity: warning
+      receiver: discord-info
+
+receivers:
+  # --- Canal #alerts-prod ---
+  - name: discord-prod
+    webhook_configs:
+      - url: 'https://discord.com/api/webhooks/1504087529828253697/Hg8drelzDO4iArP6Gk45fQWBdPzrFPFpxfDp_yc9Mt4bn4_zt_YrWwS4mnjdyisB42vt'
+        # Alertmanager envoie du JSON, Discord attend { "content": "..." }
+        # Le template par défaut convient pour Discord
+        send_resolved: true   # notifie aussi quand l'alerte se résout
+
+  # --- Canal #alerts-info ---
+  - name: discord-info
+    webhook_configs:
+      - url: 'https://discord.com/api/webhooks/1504087529828253697/Hg8drelzDO4iArP6Gk45fQWBdPzrFPFpxfDp_yc9Mt4bn4_zt_YrWwS4mnjdyisB42vt'
+        send_resolved: true

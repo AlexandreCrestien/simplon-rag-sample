@@ -1,0 +1,52 @@
+groups:
+  - name: simplon_rag_alerts
+    rules:
+
+      # --- ALERTE 1 : Latence p95 trop haute sur /messages (Version Mistral API) ---
+      # On surveille le temps de réponse ressenti par l'utilisateur. 
+      # En réseau avec Mistral, si le p95 > 5s pendant 2 minutes, il y a une anomalie 
+      # (lenteur réseau ou saturation de l'API externe).
+      - alert: HighLatencyMessages
+        expr: |
+          histogram_quantile(0.95,
+            sum by (le) (rate(http_request_duration_seconds_bucket{endpoint=~"/api/v1/conversations/[^/]+/messages"}[5m]))
+          ) > 5
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Latence p95 trop haute sur /messages (API Mistral)"
+          description: |
+            La latence p95 sur /messages dépasse 5 secondes depuis 2 minutes.
+            Valeur actuelle : {{ $value | humanizeDuration }}
+          runbook: |
+            1. Vérifier les logs de l'API : docker compose logs api
+            2. Vérifier la connectivité Internet du conteneur : docker compose exec api curl -I https://api.mistral.ai
+            3. Vérifier si l'API Mistral subit une panne mondiale : Consulter https://status.mistral.ai
+            4. Si le réseau est OK, vérifier si les requêtes vers la base de vecteurs (Chroma/Qdrant) ne ralentissent pas le RAG.
+
+
+
+      # --- ALERTE 2 : Taux d'erreur 5xx élevé ---
+      # Si plus de 10% des requêtes retournent une erreur serveur. 
+      # Adapté pour détecter si l'API crash suite à des clés API Mistral expirées, 
+      # des quotas dépassés (Rate Limiting) ou une déconnexion de la base de données.
+      - alert: HighErrorRate5xx
+        expr: |
+          sum(rate(http_requests_total{status=~"5.."}[5m]))
+          /
+          sum(rate(http_requests_total[5m]))
+          > 0.10
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Taux d'erreurs 5xx > 10%"
+          description: |
+            Plus de 10% des requêtes retournent une erreur 5xx depuis 1 minute.
+            Taux actuel : {{ $value | humanizePercentage }}
+          runbook: |
+            1. Inspecter les logs d'erreur : docker compose logs api | grep -i "error"
+            2. Chercher des erreurs de type "AuthenticationError" ou "RateLimitError" liées à l'API Mistral (Clé API expirée ou quota épuisé).
+            3. Vérifier la santé des bases de données : docker compose ps (postgres, pgvector ou base de vecteurs).
+            4. Valider l'état de l'API : curl http://localhost:8000/api/v1/health

@@ -52,6 +52,11 @@ services:
       retries: 10
       start_period: 30s
     restart: unless-stopped
+    logging:
+      driver: loki
+      options:
+        loki-url: "http://localhost:3100/loki/api/v1/push"
+        loki-batch-size: "400"
 
   frontend:
     build:
@@ -68,17 +73,63 @@ services:
     volumes:
       - ./frontend:/app
     restart: unless-stopped
+    logging:
+      driver: loki
+      options:
+        loki-url: "http://localhost:3100/loki/api/v1/push"
+        loki-batch-size: "400"
 
   prometheus:
     image: prom/prometheus:latest
     container_name: simplon_rag_prometheus
     volumes:
-      - ./prometheus.yml:/etc/prometheus/prometheus.yml
+      - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml
+      - ./prometheus/alert_rules.yml:/etc/prometheus/alert_rules.yml
     ports:
       - "9090:9090"
     restart: unless-stopped
+
+  loki:
+    image: grafana/loki:3.0.0
+    container_name: simplon_rag_loki
+    ports:
+      - "3100:3100"
+    volumes:
+      - ./loki/loki-config.yml:/etc/loki/local-config.yaml
+      - loki_data:/loki
+    command: -config.file=/etc/loki/local-config.yaml
+    restart: unless-stopped
+  
+  grafana:
+    image: grafana/grafana:latest
+    container_name: simplon_rag_grafana
+    depends_on:
+      - prometheus
+      - loki
+    ports:
+      - "3000:3000"
+    environment:
+      - GF_AUTH_ANONYMOUS_ENABLED=true
+      - GF_AUTH_ANONYMOUS_ORG_ROLE=Admin
+    volumes:
+      - ./grafana/provisioning:/etc/grafana/provisioning
+    restart: unless-stopped
+  
+  alertmanager:
+     image: prom/alertmanager:latest
+     container_name: simplon_rag_alertmanager
+     ports:
+       - "9093:9093"
+     volumes:
+       - ./alertmanager/alertmanager.yml:/etc/alertmanager/alertmanager.yml
+     command:
+       - '--config.file=/etc/alertmanager/alertmanager.yml'
+       - '--storage.path=/alertmanager'
+     restart: unless-stopped
 
 volumes:
   pgdata:
   api_data_docs:
   api_data_eval:
+  grafana_data:
+  loki_data:
