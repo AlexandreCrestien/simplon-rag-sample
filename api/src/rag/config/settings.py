@@ -16,12 +16,9 @@ class Settings(BaseSettings):
     postgres_password: str
     postgres_schema: str = "rag"
 
-    # Storage
-    storage_endpoint_url: str = "http://localhost:9000"  # Minio en local
-    storage_access_key: str = "minioadmin"
-    storage_secret_key: str = "minioadmin"
+    # Storage (GCS / fake-gcs-server en local)
+    storage_endpoint_url: str = "http://localhost:4443"  # fake-gcs en local, vide en prod
     storage_bucket: str = "rag-corpus"
-    storage_use_gcs: bool = False  # True en prod
     # Application
     app_env: str = "development"
     app_log_level: str = "INFO"

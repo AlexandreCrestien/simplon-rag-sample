@@ -30,7 +30,7 @@ def _parse_args() -> argparse.Namespace:
         type=Path,
         required=False,
         default=None,
-        help="Directory containing PDF files (local mode). If not set, downloads from GCS/Minio.",
+        help="Directory containing PDF files (local mode). If not set, downloads from GCS.",
     )
     return parser.parse_args()
 
@@ -44,7 +44,7 @@ class _Summary:
 
 
 async def _run_from_bucket() -> None:
-    """Download PDFs from GCS/Minio and ingest them."""
+    """Download PDFs from GCS and ingest them."""
     ensure_bucket_exists()
     pdf_keys = [k for k in list_files("corpus/") if k.endswith(".pdf")]
 
