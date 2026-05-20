@@ -2,7 +2,6 @@ from functools import lru_cache
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
-
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
 
@@ -17,6 +16,12 @@ class Settings(BaseSettings):
     postgres_password: str
     postgres_schema: str = "rag"
 
+    # Storage
+    storage_endpoint_url: str = "http://localhost:9000"  # Minio en local
+    storage_access_key: str = "minioadmin"
+    storage_secret_key: str = "minioadmin"
+    storage_bucket: str = "rag-corpus"
+    storage_use_gcs: bool = False  # True en prod
     # Application
     app_env: str = "development"
     app_log_level: str = "INFO"
