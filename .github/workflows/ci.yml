@@ -1,0 +1,82 @@
+name: CI/CD
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+    branches: [main]
+
+env:
+  PROJECT_ID: simplon-floralex
+  REGION: europe-west1
+  REGISTRY: europe-west1-docker.pkg.dev
+  REPOSITORY: simplon-rag
+  WIF_PROVIDER: projects/976732347859/locations/global/workloadIdentityPools/github-pool/providers/github-provider
+  SERVICE_ACCOUNT: cloud-run-sa@simplon-floralex.iam.gserviceaccount.com
+
+jobs:
+  lint-test:
+    name: Lint & Test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v4
+
+      - name: Install dependencies
+        run: cd api && uv sync --frozen --extra dev
+
+      - name: Lint
+        run: cd api && uv run ruff check src/
+
+      - name: Test
+        run: cd api && uv run pytest
+
+  build-push:
+    name: Build & Push
+    runs-on: ubuntu-latest
+    needs: lint-test
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    permissions:
+      contents: read
+      id-token: write
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set short SHA
+        run: echo "SHORT_SHA=${GITHUB_SHA::7}" >> $GITHUB_ENV
+
+      - name: Authenticate to GCP
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ env.WIF_PROVIDER }}
+          service_account: ${{ env.SERVICE_ACCOUNT }}
+
+      - name: Configure Docker
+        run: gcloud auth configure-docker ${{ env.REGISTRY }} --quiet
+
+      - name: Build & Push API
+        run: |
+          docker build --target prod \
+            -t ${{ env.REGISTRY }}/${{ env.PROJECT_ID }}/${{ env.REPOSITORY }}/api:${{ env.SHORT_SHA }} \
+            -t ${{ env.REGISTRY }}/${{ env.PROJECT_ID }}/${{ env.REPOSITORY }}/api:latest \
+            ./api
+          docker push ${{ env.REGISTRY }}/${{ env.PROJECT_ID }}/${{ env.REPOSITORY }}/api:${{ env.SHORT_SHA }}
+          docker push ${{ env.REGISTRY }}/${{ env.PROJECT_ID }}/${{ env.REPOSITORY }}/api:latest
+
+      - name: Build & Push Frontend
+        run: |
+          docker build --target prod \
+            -t ${{ env.REGISTRY }}/${{ env.PROJECT_ID }}/${{ env.REPOSITORY }}/frontend:${{ env.SHORT_SHA }} \
+            -t ${{ env.REGISTRY }}/${{ env.PROJECT_ID }}/${{ env.REPOSITORY }}/frontend:latest \
+            ./frontend
+          docker push ${{ env.REGISTRY }}/${{ env.PROJECT_ID }}/${{ env.REPOSITORY }}/frontend:${{ env.SHORT_SHA }}
+          docker push ${{ env.REGISTRY }}/${{ env.PROJECT_ID }}/${{ env.REPOSITORY }}/frontend:latest
+
+      - name: Summary
+        run: |
+          echo "### Images publiées 🚀" >> $GITHUB_STEP_SUMMARY
+          echo "- API: \`api:${{ env.SHORT_SHA }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "- Frontend: \`frontend:${{ env.SHORT_SHA }}\`" >> $GITHUB_STEP_SUMMARY
