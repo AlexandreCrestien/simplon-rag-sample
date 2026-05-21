@@ -32,6 +32,9 @@ jobs:
 
       - name: Test
         run: cd api && uv run pytest
+        env:
+          MISTRAL_API_KEY: ${{ secrets.MISTRAL_API_KEY }}
+          POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
 
   build-push:
     name: Build & Push
