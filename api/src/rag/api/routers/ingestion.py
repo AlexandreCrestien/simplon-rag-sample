@@ -1,6 +1,6 @@
+import tempfile
 import uuid
 from pathlib import Path
-import tempfile
 
 from fastapi import APIRouter, Depends, HTTPException, UploadFile
 from pydantic import BaseModel, Field, HttpUrl
@@ -10,7 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from rag.db.models.document import Document
 from rag.db.session import get_db
 from rag.rag.ingestion.pipeline import ingest_pdf, ingest_url
-from rag.storage.client import upload_file, ensure_bucket_exists
+from rag.storage.client import ensure_bucket_exists, upload_file
 
 router = APIRouter(prefix="/documents", tags=["ingestion"])
 

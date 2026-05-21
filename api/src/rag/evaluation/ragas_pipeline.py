@@ -59,7 +59,11 @@ async def run_evaluation(
     # Lazy imports to avoid ragas/mistralai version conflict at app startup
     from datasets import Dataset  # noqa: PLC0415
     from ragas import evaluate  # noqa: PLC0415
-    from ragas.metrics import answer_relevancy, context_recall, faithfulness  # noqa: PLC0415
+    from ragas.metrics import (  # noqa: PLC0415
+        answer_relevancy,
+        context_recall,
+        faithfulness,
+    )
 
     dataset = Dataset.from_dict(
         {

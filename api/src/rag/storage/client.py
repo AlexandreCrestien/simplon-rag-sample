@@ -3,8 +3,9 @@
 from __future__ import annotations
 
 from pathlib import Path
-from google.cloud import storage
+
 from google.api_core.client_options import ClientOptions
+from google.cloud import storage
 
 from rag.config.settings import get_settings
 

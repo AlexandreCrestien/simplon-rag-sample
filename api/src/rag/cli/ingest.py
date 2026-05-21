@@ -18,7 +18,7 @@ from pathlib import Path
 
 from rag.cli._runner import async_session
 from rag.rag.ingestion.pipeline import ingest_pdf
-from rag.storage.client import download_file, list_files, ensure_bucket_exists
+from rag.storage.client import download_file, ensure_bucket_exists, list_files
 
 _PROJECT_ROOT = Path(__file__).resolve().parents[4]
 DEFAULT_DOCS_DIR = _PROJECT_ROOT / "data" / "docs"

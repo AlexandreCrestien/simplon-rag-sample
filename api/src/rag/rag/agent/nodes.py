@@ -1,11 +1,17 @@
 import json
+import logging
 import re
+import time
+from functools import wraps
 
 from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
 from langchain_mistralai import ChatMistralAI
+from prometheus_client import Counter, Histogram
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from rag.config.settings import get_settings
+from rag.db.models.conversation import Conversation, Message
 from rag.rag.agent.prompts import (
     ESCALATION_RESPONSE,
     EVALUATOR_PROMPT,
@@ -16,15 +22,7 @@ from rag.rag.agent.prompts import (
     SYSTEM_PROMPT,
 )
 from rag.rag.agent.state import AgentState
-from rag.config.settings import get_settings
-from rag.db.models.conversation import Conversation, Message
 from rag.rag.retriever import pgvector_retriever
-
-
-import logging
-import time
-from functools import wraps
-from prometheus_client import Counter, Histogram
 
 # --- MÉTRIQUES PROMETHEUS ---
 # Histogramme pour la latence de CHAQUE nœud du graphe

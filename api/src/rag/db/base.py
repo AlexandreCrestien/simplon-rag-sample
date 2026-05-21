@@ -7,7 +7,6 @@ from sqlalchemy.types import TypeDecorator
 
 from rag.config.settings import get_settings
 
-
 _settings = get_settings()
 
 metadata_obj = MetaData(schema=_settings.postgres_schema)

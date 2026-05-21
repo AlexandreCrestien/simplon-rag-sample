@@ -1,3 +1,5 @@
+import logging
+import time
 import uuid
 from dataclasses import dataclass
 from datetime import datetime
@@ -8,8 +10,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from rag.db.models.conversation import Conversation, Message
 from rag.rag.agent.graph import build_graph
 
-import logging
-import time
 
 class ConversationNotFoundError(Exception):
     pass
