@@ -9,7 +9,7 @@ from sqlalchemy.types import TypeDecorator
 
 from rag.db.base import Base, PortableUUID
 
-EMBEDDING_DIMENSION = 1024  # mistral-embed output dimension
+EMBEDDING_DIMENSION = 768  # text-multilingual-embedding-002 output dimension
 
 # Use JSONB on PostgreSQL, plain JSON elsewhere (e.g. SQLite for tests)
 PortableJSON = JSON().with_variant(JSONB(), "postgresql")

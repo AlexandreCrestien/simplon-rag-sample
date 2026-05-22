@@ -22,6 +22,8 @@ class Settings(BaseSettings):
     storage_bucket: str = "rag-corpus"
     # Application
     app_env: str = "development"
+    gcp_project: str = "simplon-floralex"
+    gcp_location: str = "us-central1"
     app_log_level: str = "INFO"
     app_port: int = 8000
 

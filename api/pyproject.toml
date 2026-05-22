@@ -35,6 +35,8 @@ dependencies = [
     "python-json-logger>=4.1.0",
     "prometheus-client>=0.25.0",
     "google-cloud-storage>=2.0.0",
+    "langchain-google-vertexai>=3.2.3",
+    "langchain-google-genai>=4.2.3",
 ]
 
 [project.optional-dependencies]
