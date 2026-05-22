@@ -9,3 +9,16 @@ datasources:
     editable: true
     jsonData:
       timeInterval: '15s'
+
+  - name: Loki
+    type: loki
+    uid: loki
+    access: proxy
+    url: ${LOKI_URL}
+    editable: false
+    jsonData:
+      derivedFields:
+        - datasourceUid: loki
+          matcherRegex: '"request_id":\s*"([^"]+)"'
+          name: request_id
+          url: ''
