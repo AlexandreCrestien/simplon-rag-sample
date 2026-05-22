@@ -1,16 +1,17 @@
 from functools import lru_cache
 
-from langchain_mistralai import MistralAIEmbeddings
+from langchain_google_vertexai import VertexAIEmbeddings
 
 from rag.config.settings import get_settings
 
 
 @lru_cache
-def get_embeddings() -> MistralAIEmbeddings:
+def get_embeddings() -> VertexAIEmbeddings:
     settings = get_settings()
-    return MistralAIEmbeddings(
-        model="mistral-embed",
-        api_key=settings.mistral_api_key,
+    return VertexAIEmbeddings(
+        model_name="text-multilingual-embedding-002",
+        project=settings.gcp_project,
+        location=settings.gcp_location,
     )
 
 

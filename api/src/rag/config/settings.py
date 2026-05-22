@@ -17,8 +17,13 @@ class Settings(BaseSettings):
     postgres_password: str
     postgres_schema: str = "rag"
 
+    # Storage (GCS / fake-gcs-server en local)
+    storage_endpoint_url: str = "http://localhost:4443"  # fake-gcs en local, vide en prod
+    storage_bucket: str = "rag-corpus"
     # Application
     app_env: str = "development"
+    gcp_project: str = "simplon-floralex"
+    gcp_location: str = "us-central1"
     app_log_level: str = "INFO"
     app_port: int = 8000
 
@@ -36,6 +41,12 @@ class Settings(BaseSettings):
 
     @property
     def database_url(self) -> str:
+        if self.postgres_host.startswith("/"):
+            # Cloud SQL via socket Unix
+            return (
+                f"postgresql+asyncpg://{self.postgres_user}:{self.postgres_password}"
+                f"@/{self.postgres_db}?host={self.postgres_host}"
+            )
         return (
             f"postgresql+asyncpg://{self.postgres_user}:{self.postgres_password}"
             f"@{self.postgres_host}:{self.postgres_port}/{self.postgres_db}"
@@ -43,6 +54,12 @@ class Settings(BaseSettings):
 
     @property
     def database_url_sync(self) -> str:
+        if self.postgres_host.startswith("/"):
+            # Cloud SQL via socket Unix
+            return (
+                f"postgresql+psycopg://{self.postgres_user}:{self.postgres_password}"
+                f"@/{self.postgres_db}?host={self.postgres_host}"
+            )
         return (
             f"postgresql+psycopg://{self.postgres_user}:{self.postgres_password}"
             f"@{self.postgres_host}:{self.postgres_port}/{self.postgres_db}"

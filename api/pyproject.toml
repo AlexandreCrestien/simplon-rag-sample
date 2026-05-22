@@ -34,6 +34,9 @@ dependencies = [
     "pyjwt>=2.12.1",
     "python-json-logger>=4.1.0",
     "prometheus-client>=0.25.0",
+    "google-cloud-storage>=2.0.0",
+    "langchain-google-vertexai>=3.2.3",
+    "langchain-google-genai>=4.2.3",
 ]
 
 [project.optional-dependencies]
@@ -57,9 +60,6 @@ dev = [
 asyncio_mode = "auto"
 testpaths = ["tests"]
 pythonpath = ["."]
-
-[tool.ruff.lint]
-select = ["E", "F", "I"]
 
 [tool.semantic_release]
 version_toml = ["pyproject.toml:project.version"]
@@ -89,3 +89,8 @@ dev = [
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/rag"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I"]
+extend-ignore = ["E501"]
+

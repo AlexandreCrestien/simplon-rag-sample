@@ -29,6 +29,8 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+      fake-gcs:
+        condition: service_started
     env_file:
       - ./api/.env
     environment:
@@ -39,6 +41,8 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-rag_password}
       APP_ENV: development
       CORS_ALLOWED_ORIGINS: "http://localhost:5173,http://localhost:4173,http://localhost:8501"
+      STORAGE_ENDPOINT_URL: "http://fake-gcs:4443"
+      STORAGE_BUCKET: "rag-corpus"
     ports:
       - "8000:8000"
     volumes:
@@ -52,11 +56,11 @@ services:
       retries: 10
       start_period: 30s
     restart: unless-stopped
-    logging:
-      driver: loki
-      options:
-        loki-url: "http://localhost:3100/loki/api/v1/push"
-        loki-batch-size: "400"
+    # logging:
+    #   driver: loki
+    #   options:
+    #     loki-url: "http://localhost:3100/loki/api/v1/push"
+    #     loki-batch-size: "400"
 
   frontend:
     build:
@@ -73,11 +77,21 @@ services:
     volumes:
       - ./frontend:/app
     restart: unless-stopped
-    logging:
-      driver: loki
-      options:
-        loki-url: "http://localhost:3100/loki/api/v1/push"
-        loki-batch-size: "400"
+    # logging:
+    #   driver: loki
+    #   options:
+    #     loki-url: "http://localhost:3100/loki/api/v1/push"
+    #     loki-batch-size: "400"
+
+  fake-gcs:
+    image: fsouza/fake-gcs-server
+    container_name: simplon_rag_fake_gcs
+    ports:
+      - "4443:4443"
+    command: -scheme http -port 4443 -public-host fake-gcs:4443
+    volumes:
+      - ./gcs-data:/data
+    restart: unless-stopped
 
   prometheus:
     image: prom/prometheus:latest
@@ -99,7 +113,7 @@ services:
       - loki_data:/loki
     command: -config.file=/etc/loki/local-config.yaml
     restart: unless-stopped
-  
+
   grafana:
     image: grafana/grafana:latest
     container_name: simplon_rag_grafana
@@ -114,18 +128,18 @@ services:
     volumes:
       - ./grafana/provisioning:/etc/grafana/provisioning
     restart: unless-stopped
-  
+
   alertmanager:
-     image: prom/alertmanager:latest
-     container_name: simplon_rag_alertmanager
-     ports:
-       - "9093:9093"
-     volumes:
-       - ./alertmanager/alertmanager.yml:/etc/alertmanager/alertmanager.yml
-     command:
-       - '--config.file=/etc/alertmanager/alertmanager.yml'
-       - '--storage.path=/alertmanager'
-     restart: unless-stopped
+    image: prom/alertmanager:latest
+    container_name: simplon_rag_alertmanager
+    ports:
+      - "9093:9093"
+    volumes:
+      - ./alertmanager/alertmanager.yml:/etc/alertmanager/alertmanager.yml
+    command:
+      - '--config.file=/etc/alertmanager/alertmanager.yml'
+      - '--storage.path=/alertmanager'
+    restart: unless-stopped
 
 volumes:
   pgdata:

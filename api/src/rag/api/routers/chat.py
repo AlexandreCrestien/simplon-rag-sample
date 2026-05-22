@@ -1,3 +1,4 @@
+import logging
 import uuid
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -6,8 +7,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from rag.db.session import get_db
 from rag.rag.chat_service import ChatService, ConversationNotFoundError
-
-import logging
 
 router = APIRouter(prefix="/conversations", tags=["chat"])
 

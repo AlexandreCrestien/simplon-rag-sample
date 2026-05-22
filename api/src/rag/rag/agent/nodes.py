@@ -1,11 +1,17 @@
 import json
+import logging
 import re
+import time
+from functools import wraps
 
 from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
-from langchain_mistralai import ChatMistralAI
+from langchain_google_vertexai import ChatVertexAI
+from prometheus_client import Counter, Histogram
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from rag.config.settings import get_settings
+from rag.db.models.conversation import Conversation, Message
 from rag.rag.agent.prompts import (
     ESCALATION_RESPONSE,
     EVALUATOR_PROMPT,
@@ -16,15 +22,7 @@ from rag.rag.agent.prompts import (
     SYSTEM_PROMPT,
 )
 from rag.rag.agent.state import AgentState
-from rag.config.settings import get_settings
-from rag.db.models.conversation import Conversation, Message
 from rag.rag.retriever import pgvector_retriever
-
-
-import logging
-import time
-from functools import wraps
-from prometheus_client import Counter, Histogram
 
 # --- MÉTRIQUES PROMETHEUS ---
 # Histogramme pour la latence de CHAQUE nœud du graphe
@@ -90,9 +88,9 @@ def _extract_json(content: str) -> str:
     return match.group(0) if match else content
 
 
-def _get_llm(settings=None, model: str = "mistral-large-latest") -> ChatMistralAI:
+def _get_llm(settings=None, model: str = "gemini-2.5-flash") -> ChatVertexAI:
     s = settings or get_settings()
-    return ChatMistralAI(model=model, api_key=s.mistral_api_key)
+    return ChatVertexAI(model_name=model, project=s.gcp_project, location=s.gcp_location)
 
 
 @log_node("load_history")
@@ -133,7 +131,7 @@ async def guard_route(state: AgentState) -> dict:
     to avoid false negatives.
     """
     settings = get_settings()
-    llm = _get_llm(settings, model="mistral-small-latest")
+    llm = _get_llm(settings, model="gemini-2.5-flash")
     prompt = GUARD_ROUTE_PROMPT.format(
         product_name=settings.product_name,
         user_message=state["user_message"],
@@ -241,7 +239,7 @@ async def evaluate(state: AgentState) -> dict:
     regardless of score to prevent infinite loops.
     Fails open ("answer") on any JSON parsing error.
     """
-    llm = _get_llm(model="mistral-small-latest")
+    llm = _get_llm(model="gemini-2.5-flash")
 
     context_summary = "\n".join(
         f"- [{c['filename']}]: {c['content'][:100]}..."
